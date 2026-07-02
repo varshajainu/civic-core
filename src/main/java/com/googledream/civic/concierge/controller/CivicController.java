@@ -1,143 +1,116 @@
 package com.googledream.civic.concierge.controller;
 
-import com.google.cloud.vertexai.VertexAI;
-import com.google.cloud.vertexai.generativeai.GenerativeModel;
-import com.google.cloud.vertexai.api.GenerateContentResponse;
-import com.google.cloud.vertexai.generativeai.ResponseHandler;
-import com.google.cloud.vertexai.generativeai.ContentMaker;
-import com.google.cloud.vertexai.generativeai.PartMaker;
-import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.BigQueryOptions;
-import com.google.cloud.bigquery.InsertAllRequest;
-import com.google.cloud.bigquery.InsertAllResponse;
-import com.google.cloud.bigquery.TableId;
+import com.googledream.civic.concierge.service.BigQueryService;
+import com.googledream.civic.concierge.service.GeminiService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Map;
 import java.util.HashMap;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/civic")
 public class CivicController {
 
-    private final GenerativeModel model;
-    private final List<String> chatHistory = new ArrayList<>();
-    private final List<String> bannedKeywords = List.of("ignore previous", "hacker", "jailbreak", "write a poem");
-    private final String projectId = "civic-concierge-hackathon";
+    private final GeminiService geminiService;
+    private final BigQueryService bigQueryService;
 
-    public CivicController() {
-        VertexAI vertexAI = new VertexAI(projectId, "us-central1");
-        this.model = new GenerativeModel("gemini-2.5-flash", vertexAI);
+    private static final Pattern TICKET_ID_PATTERN = Pattern.compile("TKT-\\d+");
+    private static final Pattern RISK_SCORE_PATTERN = Pattern.compile("(?:Risk\\s*Score)\\**:?\\**\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern CATEGORY_PATTERN = Pattern.compile("(?:Hazard\\s*Category)\\**:?\\**\\s*([^\\n]+)", Pattern.CASE_INSENSITIVE);
+
+    public CivicController(GeminiService geminiService, BigQueryService bigQueryService) {
+        this.geminiService = geminiService;
+        this.bigQueryService = bigQueryService;
     }
 
     @PostMapping("/report")
-    public ResponseEntity<?> processReport(
-            @RequestParam(value = "text", required = false) String userInput,
-            @RequestParam(value = "image", required = false) MultipartFile imageFile) {
+    public ResponseEntity<Map<String, String>> handleReport(
+            @RequestParam(value = "text", required = false) String text,
+            @RequestParam(value = "images", required = false) MultipartFile[] images) {
 
-        if ((userInput == null || userInput.trim().isEmpty()) && (imageFile == null || imageFile.isEmpty())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Must provide text or an image."));
+        Map<String, String> responseBody = new HashMap<>();
+        boolean hasImages = images != null && images.length > 0;
+        boolean hasText = text != null && !text.isBlank();
+
+        if (!hasImages && !hasText) {
+            responseBody.put("response", "Error: No text or image provided.");
+            return ResponseEntity.badRequest().body(responseBody);
         }
 
-        if (userInput != null) {
-            String lowerInput = userInput.toLowerCase();
-            for (String keyword : bannedKeywords) {
-                if (lowerInput.contains(keyword)) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "Security violation detected."));
-                }
-            }
-            chatHistory.add("User: " + userInput);
-        } else {
-            chatHistory.add("User uploaded an image for analysis.");
-        }
+        String userMessage = hasText ? text : "No description provided.";
 
         try {
-            String generatedTicketId = "TKT-" + (int)(Math.random() * 90000 + 10000);
+            String systemPrompt;
 
-            StringBuilder textPrompt = new StringBuilder();
-            textPrompt.append("You are an automated Civic Triage Agent. Identify the user's city or region based on their prompt, if provided. ")
-                    .append("If the user refers to an image but none is provided, explicitly ask them to upload the photo. Do not assume damage without an image. ")
-                    .append("If a civic issue is identified, structure your response in TWO parts:\n")
-                    .append("PART 1 - CITIZEN ADVICE: Provide a concise 2-step bulleted list advising the citizen on next steps. \n")
-                    .append("PART 2 - SYSTEM ALERT TICKET: Generate a structured text block formatted EXACTLY like this:\n")
-                    .append("--- TICKET GENERATED ---\n")
-                    .append("**Ticket ID:** ").append(generatedTicketId).append("\n")
-                    .append("**Hazard Category:** [Identify category]\n")
-                    .append("**Risk Score:** [Assign a number 1-10 based on severity]\n")
-                    .append("**Routing To:** [Relevant City Department]\n\n")
-                    .append("Conversation History:\n");
-
-            // Loop history so the AI has context of what is happening
-            int start = Math.max(0, chatHistory.size() - 6);
-            for (int i = start; i < chatHistory.size(); i++) {
-                textPrompt.append(chatHistory.get(i)).append("\n");
-            }
-            textPrompt.append("AI:");
-
-            GenerateContentResponse response;
-
-            if (imageFile != null && !imageFile.isEmpty()) {
-                byte[] imageBytes = imageFile.getBytes();
-                String mimeType = imageFile.getContentType();
-
-                response = model.generateContent(
-                        ContentMaker.fromMultiModalData(
-                                PartMaker.fromMimeTypeAndData(mimeType, imageBytes),
-                                textPrompt.toString()
-                        )
-                );
+            if (hasImages) {
+                systemPrompt = "You are a friendly, professional Civic Infrastructure AI Concierge. " +
+                        "Analyze the attached images and the user's message: '" + userMessage + "'.\n" +
+                        "You MUST follow this exact structure with no deviation:\n\n" +
+                        "**PART 1 - CITIZEN ADVICE:**\n" +
+                        "[Polite, conversational paragraph acknowledging the user, confirming location only if given, safety advice.]\n\n" +
+                        "Rule 1: If an image is clearly NOT a civic hazard (person, pet, random indoor object), state in Part 1 that you cannot process that specific image.\n\n" +
+                        "Rule 2 (MANDATORY): For EVERY valid civic hazard image, you MUST output a ticket block in EXACTLY this format — never omit it, never paraphrase the field names:\n\n" +
+                        "--- TICKET GENERATED ---\n" +
+                        "**Ticket ID:** TKT-[Random 5 Digits]\n" +
+                        "**Hazard Category:** [e.g. Road Hazard (Pothole)]\n" +
+                        "**Risk Score:** [1-10] / 10\n" +
+                        "**Routing To:** [Appropriate Department]\n\n" +
+                        "If there is at least one valid hazard image, the response is INVALID unless it contains at least one '--- TICKET GENERATED ---' block.";
             } else {
-                response = model.generateContent(textPrompt.toString());
+                systemPrompt = "You are a friendly, professional Civic Infrastructure AI Concierge. " +
+                        "A citizen sent this message with no photo attached: '" + userMessage + "'.\n" +
+                        "Reply in 2-4 warm, conversational sentences acknowledging what they described, " +
+                        "and ask them to attach at least one photo so you can assess it and open a ticket. " +
+                        "Do not invent a ticket and do not use the '--- TICKET GENERATED ---' format.";
             }
 
-            String aiResponse = ResponseHandler.getText(response);
-            chatHistory.add("AI: " + aiResponse);
+            String aiResult = geminiService.analyzeMultipleImages(systemPrompt, images);
+            responseBody.put("response", aiResult);
 
-            if (aiResponse.contains("Risk Score:")) {
-                System.out.println("ALERT: High Risk Ticket " + generatedTicketId + " queued for BigQuery ingestion.");
-                saveToBigQuery(generatedTicketId, aiResponse);
+            if (hasImages) {
+                try {
+                    persistTickets(aiResult);
+                } catch (Exception bqEx) {
+                    System.err.println("BigQuery persistence failed: " + bqEx.getMessage());
+                    bqEx.printStackTrace();
+                }
             }
 
-            return ResponseEntity.ok(Map.of("response", aiResponse));
+            return ResponseEntity.ok(responseBody);
 
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            responseBody.put("response", "Internal Server Error: Could not process the files or connect to Vertex AI.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseBody);
         }
     }
 
-    private void saveToBigQuery(String ticketId, String aiResponse) {
-        try {
-            BigQuery bigquery = BigQueryOptions.newBuilder().setProjectId(projectId).build().getService();
-            TableId tableId = TableId.of("civic_data", "triage_tickets");
-            Map<String, Object> rowContent = new HashMap<>();
-            rowContent.put("ticket_id", ticketId);
-            rowContent.put("ai_analysis", aiResponse);
-            rowContent.put("timestamp", java.time.Instant.now().toString());
+    private void persistTickets(String aiResult) {
+        String[] blocks = aiResult.split("(?i)TICKET GENERATED");
 
-            InsertAllResponse response = bigquery.insertAll(
-                    InsertAllRequest.newBuilder(tableId)
-                            .addRow(rowContent)
-                            .build()
-            );
+        for (int i = 1; i < blocks.length; i++) {
+            String block = blocks[i];
 
-            if (response.hasErrors()) {
-                System.err.println("Error inserting into BigQuery: " + response.getInsertErrors());
-            } else {
-                System.out.println("Successfully saved Ticket " + ticketId + " to BigQuery.");
-            }
-        } catch (Exception e) {
-            System.err.println("BigQuery connection failed: " + e.getMessage());
+            Matcher idMatcher = TICKET_ID_PATTERN.matcher(block);
+            String ticketId = idMatcher.find()
+                    ? idMatcher.group()
+                    : "TKT-" + ThreadLocalRandom.current().nextInt(10000, 99999);
+
+            Matcher riskMatcher = RISK_SCORE_PATTERN.matcher(block);
+            int riskScore = riskMatcher.find() ? Integer.parseInt(riskMatcher.group(1)) : 5;
+
+            Matcher categoryMatcher = CATEGORY_PATTERN.matcher(block);
+            String category = categoryMatcher.find()
+                    ? categoryMatcher.group(1).replace("*", "").trim()
+                    : "Uncategorized";
+
+            bigQueryService.insertTicket(ticketId, block.trim(), category, riskScore);
         }
-    }
-
-    @PostMapping("/reset")
-    public ResponseEntity<?> resetChat() {
-        chatHistory.clear();
-        return ResponseEntity.ok(Map.of("status", "Chat history cleared"));
     }
 }

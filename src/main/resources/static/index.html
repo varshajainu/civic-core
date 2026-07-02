@@ -6,322 +6,67 @@
     <title>Civic Concierge Command Center</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* =========================================
-           GENERAL STYLES
-           ========================================= */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-            transition: background-color 0.3s, color 0.3s;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; display: flex; height: 100vh; overflow: hidden; transition: 0.3s; }
+        .sidebar { min-width: 280px; width: 280px; background: #1e1e2d; color: #ffffff; display: flex; flex-direction: column; padding: 20px; z-index: 10; }
+        .sidebar-header { font-size: 1.5rem; font-weight: bold; margin-bottom: 30px; display: flex; align-items: center; gap: 10px; }
+        .nav-item { padding: 12px 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .nav-item:hover { background: rgba(255,255,255,0.1); }
+        .nav-active { background: #1a73e8 !important; font-weight: bold; }
+        .stats-box { margin-top: auto; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; font-size: 0.9rem; line-height: 1.6; }
 
-        /* =========================================
-           SIDEBAR
-           ========================================= */
-        .sidebar {
-            min-width: 280px;
-            width: 280px;
-            background: #1e1e2d;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-        .sidebar-header {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .nav-item {
-            padding: 12px 15px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .nav-item:hover {
-            background: rgba(255,255,255,0.1);
-        }
-        .nav-active {
-            background: #1a73e8 !important;
-            font-weight: bold;
-        }
-        .stats-box {
-            margin-top: auto;
-            background: rgba(0,0,0,0.2);
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            line-height: 1.6;
-        }
+        .main-wrapper { flex-grow: 1; display: flex; flex-direction: column; position: relative; width: calc(100% - 320px); }
+        .view-section { display: none; flex-direction: column; height: 100%; width: 100%; background: #ffffff; transition: 0.3s; }
+        .view-active { display: flex !important; }
 
-        /* =========================================
-           MAIN LAYOUT
-           ========================================= */
-        .main-wrapper {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            width: calc(100% - 320px);
-        }
-        .view-section {
-            display: none;
-            flex-direction: column;
-            height: 100%;
-            width: 100%;
-            background: #ffffff;
-            transition: background-color 0.3s;
-        }
-        .view-active {
-            display: flex !important;
-        }
+        .theme-toggle-global { position: absolute; top: 18px; right: 30px; font-size: 1.4rem; cursor: pointer; z-index: 100; opacity: 0.7; }
+        .theme-toggle-global:hover { opacity: 1; transform: scale(1.1); }
 
-        /* Theme Toggle Icon */
-        .theme-toggle-global {
-            position: absolute;
-            top: 18px;
-            right: 30px;
-            font-size: 1.4rem;
-            cursor: pointer;
-            z-index: 100;
-            transition: transform 0.2s;
-        }
-        .theme-toggle-global:hover {
-            transform: scale(1.1);
-        }
+        .top-bar { padding: 20px 30px; background: #ffffff; border-bottom: 1px solid #e0e0e0; font-size: 1.2rem; font-weight: 600; color: #333; }
+        .messages { flex-grow: 1; padding: 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; background: #f8f9fa; }
+        .message { padding: 16px 22px; border-radius: 12px; max-width: 75%; line-height: 1.6; }
+        .user-msg { background: #1a73e8; color: #ffffff; align-self: flex-end; }
+        .ai-msg { background: #ffffff; color: #202124; align-self: flex-start; border: 1px solid #e0e0e0; }
+        .chat-image { max-width: 150px; max-height: 150px; border-radius: 8px; margin-top: 10px; display: inline-block; margin-right: 10px; border: 2px solid rgba(255,255,255,0.2); }
 
-        /* =========================================
-           CHAT UI
-           ========================================= */
-        .top-bar {
-            padding: 20px 30px;
-            background: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: #333;
-            transition: 0.3s;
-        }
-        .messages {
-            flex-grow: 1;
-            padding: 30px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            background: #f8f9fa;
-        }
-        .message {
-            padding: 16px 22px;
-            border-radius: 12px;
-            max-width: 75%;
-            line-height: 1.6;
-        }
-        .user-msg {
-            background: #1a73e8;
-            color: #ffffff;
-            align-self: flex-end;
-        }
-        .ai-msg {
-            background: #ffffff;
-            color: #202124;
-            align-self: flex-start;
-            border: 1px solid #e0e0e0;
-        }
-        .chat-image {
-            max-width: 100%;
-            max-height: 250px;
-            border-radius: 8px;
-            margin-top: 10px;
-            display: block;
-        }
+        .input-area { padding: 20px 30px; background: #ffffff; border-top: 1px solid #e0e0e0; display: flex; gap: 15px; align-items: center; position: relative; }
+        .icon-btn { background: #f1f3f4; border: none; font-size: 1.2rem; cursor: pointer; padding: 12px; border-radius: 50%; color: #5f6368; flex-shrink: 0; }
+        input[type="text"] { flex-grow: 1; padding: 16px 24px; border: 1px solid #dadce0; border-radius: 30px; outline: none; background: #f8f9fa; font-size: 1rem; }
+        button.send-btn { background: #1a73e8; color: white; border: none; padding: 0 28px; height: 50px; border-radius: 25px; cursor: pointer; font-weight: 600; }
 
-        /* Input Area & Attachment */
-        .input-area {
-            padding: 20px 30px;
-            background: #ffffff;
-            border-top: 1px solid #e0e0e0;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-        .icon-btn {
-            background: #f1f3f4;
-            border: none;
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 12px;
-            border-radius: 50%;
-            color: #5f6368;
-            transition: 0.3s;
-            flex-shrink: 0;
-        }
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 16px 24px;
-            border: 1px solid #dadce0;
-            border-radius: 30px;
-            outline: none;
-            background: #f8f9fa;
-            font-size: 1rem;
-        }
-        button.send-btn {
-            background: #1a73e8;
-            color: white;
-            border: none;
-            padding: 0 28px;
-            height: 50px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
+        /* Multi-Image Staging Area Styling */
+        #staging-preview { display: none; position: absolute; bottom: 90px; left: 30px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid #e0e0e0; z-index: 50; flex-wrap: wrap; gap: 15px; max-width: 600px; }
+        .staging-img-container { position: relative; display: inline-block; }
+        .staging-img { height: 80px; width: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; }
+        .remove-btn { position: absolute; top: -10px; right: -10px; background: #c5221f; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); line-height: 1; padding-bottom: 2px; }
+        .remove-btn:hover { background: #a50e0e; transform: scale(1.1); }
 
-        /* Image Preview Box */
-        #staging-preview {
-            display: none;
-            position: absolute;
-            bottom: 90px;
-            left: 30px;
-            background: white;
-            padding: 10px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border: 1px solid #e0e0e0;
-        }
-        #staging-img {
-            max-height: 100px;
-            border-radius: 6px;
-        }
+        .dash-container { padding: 40px; overflow-y: auto; background: #f0f2f5; height: 100%; }
+        .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .dash-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .dash-card h3 { margin: 0 0 10px 0; color: #5f6368; font-size: 1rem; font-weight: normal; }
+        .dash-card h1 { margin: 0; color: #1a73e8; font-size: 2.5rem; }
+        .table-card { background: white; padding: 25px; border-radius: 12px; overflow-x: auto; }
+        table { width: 100%; min-width: 600px; border-collapse: collapse; margin-top: 15px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #e0e0e0; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-weight: bold; background: #fce8e6; color: #c5221f; }
 
-        /* =========================================
-           DASHBOARD UI
-           ========================================= */
-        .dash-container {
-            padding: 40px;
-            overflow-y: auto;
-            background: #f0f2f5;
-            height: 100%;
-        }
-        .dash-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .dash-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        .dash-card h3 {
-            margin: 0 0 10px 0;
-            color: #5f6368;
-            font-size: 1rem;
-            font-weight: normal;
-        }
-        .dash-card h1 {
-            margin: 0;
-            color: #1a73e8;
-            font-size: 2.5rem;
-        }
-        .table-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            min-width: 600px;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        th, td {
-            text-align: left;
-            padding: 12px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-weight: bold;
-            background: #fce8e6;
-            color: #c5221f;
-        }
-
-        /* =========================================
-           DARK THEME OVERRIDES
-           ========================================= */
-        body.dark-theme {
-            background-color: #121212;
-            color: #e0e0e0;
-        }
-        .dark-theme .view-section,
-        .dark-theme .dash-container {
-            background: #121212;
-        }
-        .dark-theme .top-bar {
-            background: #1e1e1e;
-            border-color: #333;
-            color: #e0e0e0;
-        }
-        .dark-theme .messages {
-            background: #121212;
-        }
-        .dark-theme .ai-msg {
-            background: #2d2d2d;
-            color: #e0e0e0;
-            border-color: #444;
-        }
-        .dark-theme .input-area {
-            background: #1e1e1e;
-            border-top-color: #333;
-        }
-        .dark-theme .icon-btn {
-            background: #2d2d2d;
-            color: #aaa;
-        }
-        .dark-theme input[type="text"] {
-            background: #2d2d2d;
-            border-color: #444;
-            color: #fff;
-        }
-        .dark-theme #staging-preview {
-            background: #2d2d2d;
-            border-color: #444;
-        }
-        .dark-theme .dash-card,
-        .dark-theme .table-card {
-            background: #1e1e1e;
-        }
-        .dark-theme th,
-        .dark-theme td {
-            border-bottom-color: #444;
-            color: #e0e0e0;
-        }
-        .dark-theme .dash-card h3,
-        .dark-theme th {
-            color: #aaaaaa;
-        }
+        body.dark-theme { background-color: #121212; color: #e0e0e0; }
+        .dark-theme .view-section, .dark-theme .dash-container { background: #121212; }
+        .dark-theme .top-bar { background: #1e1e1e; border-color: #333; color: #e0e0e0; }
+        .dark-theme .messages { background: #121212; }
+        .dark-theme .ai-msg { background: #2d2d2d; color: #e0e0e0; border-color: #444; }
+        .dark-theme .input-area { background: #1e1e1e; border-top-color: #333; }
+        .dark-theme .icon-btn { background: #2d2d2d; color: #aaa; }
+        .dark-theme input[type="text"] { background: #2d2d2d; border-color: #444; color: #fff; }
+        .dark-theme #staging-preview { background: #2d2d2d; border-color: #444; }
+        .dark-theme .staging-img { border-color: #555; }
+        .dark-theme .dash-card, .dark-theme .table-card { background: #1e1e1e; }
+        .dark-theme th, .dark-theme td { border-bottom-color: #444; color: #e0e0e0; }
+        .dark-theme .dash-card h3, .dark-theme th { color: #aaaaaa; }
     </style>
 </head>
 <body>
 
-<!-- Sidebar -->
 <div class="sidebar">
     <div class="sidebar-header">🏛️ Civic Core</div>
     <div class="nav-item nav-active" onclick="switchTab('chat-view', this)">💬 Triage Concierge</div>
@@ -333,64 +78,40 @@
     </div>
 </div>
 
-<!-- Main Content Area -->
 <div class="main-wrapper">
-    <div class="theme-toggle-global" onclick="toggleTheme()" title="Toggle Dark Mode">🌓</div>
+    <div class="theme-toggle-global" onclick="toggleTheme()">🌓</div>
 
-    <!-- Chat View -->
     <div id="chat-view" class="view-section view-active">
         <div class="top-bar">Citizen Intake Portal</div>
 
         <div class="messages" id="chat-box">
             <div class="message ai-msg">
                 <strong>System Online.</strong><br>
-                I am the AI Civic Concierge. Describe an issue or upload a photo to generate an infrastructure ticket.
+                I am the AI Civic Concierge. Describe an issue or upload photos to generate an infrastructure ticket.
             </div>
         </div>
 
-        <!-- Image Staging Preview -->
-        <div id="staging-preview">
-            <img id="staging-img" src="" alt="staging">
-        </div>
+        <div id="staging-preview"></div>
 
-        <!-- Input Area -->
         <div class="input-area">
-            <input type="file" id="image-upload" accept="image/*" style="display: none;" onchange="previewFile(event)">
+            <input type="file" id="image-upload" accept="image/*" multiple style="display: none;" onchange="handleFileSelect(event)">
             <button class="icon-btn" onclick="document.getElementById('image-upload').click()">📎</button>
-
             <input type="text" id="user-input" placeholder="Enter location and issue details..." onkeypress="handleKeyPress(event)">
             <button class="send-btn" onclick="sendMessage()">Route Ticket</button>
         </div>
     </div>
 
-    <!-- Dashboard View -->
     <div id="dashboard-view" class="view-section dash-container">
         <h2 style="margin-top: 0;">City Overview (Live DB Sync)</h2>
         <div class="dash-grid">
-            <div class="dash-card">
-                <h3>Total Tickets Today</h3>
-                <h1 id="count-total">0</h1>
-            </div>
-            <div class="dash-card">
-                <h3>High Risk Alerts</h3>
-                <h1 id="count-risk" style="color: #c5221f;">0</h1>
-            </div>
-            <div class="dash-card">
-                <h3>Avg AI Triage Time</h3>
-                <h1>1.2s</h1>
-            </div>
+            <div class="dash-card"><h3>Total Tickets Today</h3><h1 id="count-total">0</h1></div>
+            <div class="dash-card"><h3>High Risk Alerts</h3><h1 id="count-risk" style="color: #c5221f;">0</h1></div>
+            <div class="dash-card"><h3>Avg AI Triage Time</h3><h1>1.2s</h1></div>
         </div>
         <div class="table-card">
             <h3>Recent Tickets</h3>
             <table id="live-ticket-table">
-                <thead>
-                <tr>
-                    <th>Ticket ID</th>
-                    <th>Category</th>
-                    <th>Risk Score</th>
-                    <th>Status</th>
-                </tr>
-                </thead>
+                <thead><tr><th>Ticket ID</th><th>Category</th><th>Risk Score</th><th>Status</th></tr></thead>
                 <tbody></tbody>
             </table>
         </div>
@@ -398,18 +119,12 @@
 </div>
 
 <script>
-    // Set initial theme based on localStorage
-    if (localStorage.getItem('theme') === 'dark') {
-        document.body.classList.add('dark-theme');
-    }
-
-    // Toggle dark mode and save preference
+    if (localStorage.getItem('theme') === 'dark') document.body.classList.add('dark-theme');
     function toggleTheme() {
         document.body.classList.toggle('dark-theme');
         localStorage.setItem('theme', document.body.classList.contains('dark-theme') ? 'dark' : 'light');
     }
 
-    // Switch between Chat and Dashboard views
     function switchTab(viewId, element) {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('view-active'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('nav-active'));
@@ -417,23 +132,51 @@
         element.classList.add('nav-active');
     }
 
-    // Handle Image Preview
-    let currentImageBase64 = null;
-    function previewFile(event) {
-        const file = event.target.files[0];
-        if (file) {
+    // Multi-Image Handling
+    let selectedFilesArray = [];
+
+    function handleFileSelect(event) {
+        const files = event.target.files;
+        if (files.length === 0) return;
+
+        Array.from(files).forEach(file => {
             const reader = new FileReader();
             reader.onload = function(e) {
-                currentImageBase64 = e.target.result;
-                document.getElementById('staging-img').src = currentImageBase64;
-                document.getElementById('staging-preview').style.display = 'block';
-                document.getElementById('user-input').focus();
-            }
+                selectedFilesArray.push({ file: file, base64: e.target.result });
+                renderStagingArea();
+            };
             reader.readAsDataURL(file);
-        }
+        });
+        document.getElementById('image-upload').value = '';
+        document.getElementById('user-input').focus();
     }
 
-    // Handle Enter Key Press
+    function renderStagingArea() {
+        const container = document.getElementById('staging-preview');
+        container.innerHTML = '';
+
+        if (selectedFilesArray.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'flex';
+        selectedFilesArray.forEach((item, index) => {
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'staging-img-container';
+            imgDiv.innerHTML = `
+                <img src="${item.base64}" class="staging-img">
+                <button class="remove-btn" onclick="removeImage(${index})" title="Remove image">×</button>
+            `;
+            container.appendChild(imgDiv);
+        });
+    }
+
+    function removeImage(index) {
+        selectedFilesArray.splice(index, 1);
+        renderStagingArea();
+    }
+
     function handleKeyPress(event) {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -441,73 +184,92 @@
         }
     }
 
-    // Handle sending a message and receiving an AI response
     async function sendMessage() {
         const inputField = document.getElementById('user-input');
-        const fileInput = document.getElementById('image-upload');
         const text = inputField.value.trim();
-        const file = fileInput.files[0];
 
-        if (!text && !file) return;
+        if (!text && selectedFilesArray.length === 0) return;
 
         const chatBox = document.getElementById('chat-box');
 
-        // Render user message visually (with image if attached)
+        // 1. Render user message visually with ALL images
         const msgDiv = document.createElement('div');
         msgDiv.className = 'message user-msg';
-        let content = `<div>${text}</div>`;
-        if (currentImageBase64) {
-            content += `<img src="${currentImageBase64}" class="chat-image">`;
-        }
+        let content = `<div>${text}</div><div style="margin-top:10px;">`;
+        selectedFilesArray.forEach(item => {
+            content += `<img src="${item.base64}" class="chat-image">`;
+        });
+        content += `</div>`;
         msgDiv.innerHTML = content;
         chatBox.appendChild(msgDiv);
 
-        // Clear inputs & hide preview
-        inputField.value = '';
-        fileInput.value = '';
-        document.getElementById('staging-preview').style.display = 'none';
-        currentImageBase64 = null;
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        // Prepare Data for Backend
+        // 2. Prepare Data for Backend
         const formData = new FormData();
         if (text) formData.append('text', text);
-        if (file) formData.append('image', file);
+        selectedFilesArray.forEach(item => {
+            formData.append('images', item.file);
+        });
+
+        // 3. Clear inputs & hide preview
+        inputField.value = '';
+        selectedFilesArray = [];
+        renderStagingArea();
+        chatBox.scrollTop = chatBox.scrollHeight;
 
         try {
-            // Send POST request to backend using FormData
-            const response = await fetch('/api/civic/report', {
-                method: 'POST',
-                body: formData
-            });
+            // 4. Send request
+            const response = await fetch('/api/civic/report', { method: 'POST', body: formData });
             const data = await response.json();
+            const rawResponseText = data.response || "";
 
-            // Render AI message
+            // 5. Render AI message
             const aiDiv = document.createElement('div');
             aiDiv.className = 'message ai-msg';
-            aiDiv.innerHTML = marked.parse(data.response);
+            aiDiv.innerHTML = marked.parse(rawResponseText);
             chatBox.appendChild(aiDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // Update dashboard if ticket was generated
-            if (data.response.includes("TICKET GENERATED")) {
-                let ticketId = data.response.match(/TKT-\d+/)?.[0] || "TKT-001";
-                let tbody = document.querySelector('#live-ticket-table tbody');
-                let row = tbody.insertRow(0);
+            // 6. DASHBOARD FIX: Loop through multiple tickets using split
+            const ticketBlocks = rawResponseText.split(/TICKET GENERATED/i);
 
-                row.innerHTML = `
-                    <td>${ticketId}</td>
-                    <td>Road Damage</td>
-                    <td><span class="badge">7 / 10</span></td>
-                    <td>Synced</td>
-                `;
+            // If there are multiple tickets, length will be > 1
+            if (ticketBlocks.length > 1) {
+                for (let i = 1; i < ticketBlocks.length; i++) {
+                    let block = ticketBlocks[i];
 
-                // Increment total count
-                let countTotalElement = document.getElementById('count-total');
-                countTotalElement.innerText = parseInt(countTotalElement.innerText) + 1;
+                    // Extract details per ticket
+                    let ticketIdMatch = block.match(/TKT-\d+/);
+                    let scoreMatch = block.match(/(?:Risk\s*Score)[\s*:]*\s*(\d+)/i) || block.match(/(\d+)\s*\/\s*10/);
+                    let catMatch = block.match(/(?:Hazard\s*Category)[\s*:]*\s*([^\n]+)/i);
+
+                    let ticketId = ticketIdMatch ? ticketIdMatch[0] : "TKT-" + Math.floor(10000 + Math.random() * 90000);
+                    let riskScore = scoreMatch ? parseInt(scoreMatch[1], 10) : 8;
+                    // Clean up markdown bold asterisks if present in category
+                    let category = catMatch ? catMatch[1].replace(/\*\*/g, '').trim() : "Civic Hazard";
+
+                    // Add to table
+                    let tbody = document.querySelector('#live-ticket-table tbody');
+                    let row = tbody.insertRow(0);
+                    row.innerHTML = `
+                        <td>${ticketId}</td>
+                        <td>${category}</td>
+                        <td><span class="badge">${riskScore} / 10</span></td>
+                        <td>Synced</td>
+                    `;
+
+                    // Update Total Counter
+                    let countTotalElement = document.getElementById('count-total');
+                    countTotalElement.innerText = parseInt(countTotalElement.innerText, 10) + 1;
+
+                    // Update Risk Counter
+                    if (riskScore >= 7) {
+                        let countRiskElement = document.getElementById('count-risk');
+                        countRiskElement.innerText = parseInt(countRiskElement.innerText, 10) + 1;
+                    }
+                }
             }
         } catch (e) {
-            console.error("Error connecting to backend API:", e);
+            console.error("Error connecting to API:", e);
         }
     }
 </script>
