@@ -63,6 +63,30 @@
         .dark-theme .dash-card, .dark-theme .table-card { background: #1e1e1e; }
         .dark-theme th, .dark-theme td { border-bottom-color: #444; color: #e0e0e0; }
         .dark-theme .dash-card h3, .dark-theme th { color: #aaaaaa; }
+        /* --- MOBILE RESPONSIVENESS FIXES --- */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { min-width: 100%; width: 100%; height: auto; padding: 15px 20px; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; flex-shrink: 0; }
+            .sidebar-header { margin-bottom: 10px; width: 100%; text-align: left; font-size: 1.3rem; }
+            .nav-item { margin-bottom: 0; padding: 10px; font-size: 0.9rem; flex: 1; text-align: center; }
+            .stats-box { display: none; }
+
+            .main-wrapper { width: 100%; flex-grow: 1; height: auto; }
+            .theme-toggle-global { top: 15px; right: 20px; }
+
+            .top-bar { padding: 15px 20px; font-size: 1.1rem; }
+            .messages { padding: 15px; }
+            .message { max-width: 90%; }
+
+            .input-area { padding: 10px 15px; gap: 8px; }
+            .icon-btn { padding: 10px; }
+            input[type="text"] { padding: 12px 15px; font-size: 0.9rem; }
+            button.send-btn { padding: 0 15px; font-size: 0.9rem; height: 45px; }
+
+            #staging-preview { left: 15px; right: 15px; bottom: 75px; max-width: none; }
+
+            .dash-container { padding: 20px; }
+        }
     </style>
 </head>
 <body>
